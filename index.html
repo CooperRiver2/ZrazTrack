@@ -335,9 +335,12 @@
                     firebase.initializeApp(firebaseConfig);
                 }
                 
-                // Anonymous sign-in to bypass strict rules
+                // Anonymous sign-in
                 await firebase.auth().signInAnonymously();
                 db = firebase.firestore();
+
+                // Explicitly set sync status to true upon successful authentication
+                setSyncStatus(true);
 
                 // Listen for real-time changes
                 db.collection('artifacts').doc('zraztrack_state')
@@ -345,7 +348,6 @@
                         if (doc.exists) {
                             appData = doc.data();
                             localStorage.setItem('zraztrack_local', JSON.stringify(appData));
-                            setSyncStatus(true);
                             renderUI();
                         } else {
                             // Seed remote DB if empty
@@ -494,8 +496,7 @@
                             <span class="text-zraz-muted font-semibold">⚡ ${uData.dailyMinsGoal} mins of daily activity</span>
                             <span class="text-white font-bold">${uData.todayMins || 0} / ${uData.dailyMinsGoal} mins</span>
                         </div>
-                        <div class="w-full bg-zraz-bg rounded-full h-2 border border-zraz-border overflow-hidden">
-                            <div class="bg-gradient-to-r from-zraz-pink to-zraz-yellow h-2 rounded-full" style="width: ${minsProgress}%"></div>
+                        <div class="w-full bg-zraz-bg rounded-full h-2 border border-zraz-pink to-zraz-yellow h-2 rounded-full" style="width: ${minsProgress}%"></div>
                         </div>
                     </div>
                 `;
