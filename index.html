@@ -48,12 +48,6 @@
         .neon-glow-pink {
             box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
         }
-        .neon-text-cyan {
-            text-shadow: 0 0 8px rgba(0, 242, 254, 0.6);
-        }
-        .neon-text-pink {
-            text-shadow: 0 0 8px rgba(255, 0, 127, 0.6);
-        }
         ::-webkit-scrollbar {
             width: 4px;
         }
@@ -144,8 +138,7 @@
                     <span class="text-xs text-zraz-cyan cursor-pointer" onclick="switchTab('goals')">Manage &rsaquo;</span>
                 </div>
 
-                <div id="userGoalsList" class="space-y-4">
-                </div>
+                <div id="userGoalsList" class="space-y-4"></div>
             </section>
 
             <section class="space-y-3">
@@ -215,8 +208,21 @@
                     </button>
                 </div>
 
-                <div id="customGoalsList" class="space-y-2 pt-2 border-t border-zraz-border">
-                    <!-- Dynamic custom goals list -->
+                <div id="customGoalsList" class="space-y-2 pt-2 border-t border-zraz-border"></div>
+            </section>
+        </div>
+
+        <!-- View 3: Performance History & Progress -->
+        <div id="view-history" class="space-y-6 hidden">
+            <section class="bg-zraz-card border border-zraz-border rounded-2xl p-4 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-base font-extrabold text-white flex items-center gap-2">
+                        <span class="text-zraz-cyan">📈</span> Historical Logs (<span id="historyUserLabel">Luke</span>)
+                    </h2>
+                </div>
+
+                <div id="historyLogsContainer" class="space-y-2 max-h-96 overflow-y-auto">
+                    <p class="text-xs text-zraz-muted text-center py-4">Loading history...</p>
                 </div>
             </section>
         </div>
@@ -237,25 +243,24 @@
                 <div>
                     <label class="block text-zraz-muted mb-1 font-semibold">Activity / Category</label>
                     <select id="log-type" class="bg-zraz-bg border border-zraz-border rounded-xl p-2.5 w-full text-white focus:border-zraz-cyan outline-none">
+                        <option value="activity">Active Minutes (Zone 2 / Walk / KB)</option>
                         <option value="weight">Scale Weight Update (lbs)</option>
-                        <option value="activity">Active Minutes (Zone 2 / Run / KB)</option>
                         <option value="workout">Completed Scheduled Workout</option>
-                        <option value="custom">Custom Goal Milestone</option>
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-zraz-muted mb-1 font-semibold">Value / Amount</label>
-                    <input type="text" id="log-value" placeholder="e.g. 208.5 or 15 mins" class="bg-zraz-bg border border-zraz-border rounded-xl p-2.5 w-full text-white focus:border-zraz-cyan outline-none">
+                    <input type="text" id="log-value" placeholder="e.g. 15 mins or 208.5 lbs" class="bg-zraz-bg border border-zraz-border rounded-xl p-2.5 w-full text-white focus:border-zraz-cyan outline-none">
                 </div>
 
                 <div>
-                    <label class="block text-zraz-muted mb-1 font-semibold">Notes / Shoutout (Optional)</label>
-                    <input type="text" id="log-notes" placeholder="e.g. Daily walk complete!" class="bg-zraz-bg border border-zraz-border rounded-xl p-2.5 w-full text-white focus:border-zraz-cyan outline-none">
+                    <label class="block text-zraz-muted mb-1 font-semibold">Notes / Description (Optional)</label>
+                    <input type="text" id="log-notes" placeholder="e.g. 20-min daily walk (5 mins short)" class="bg-zraz-bg border border-zraz-border rounded-xl p-2.5 w-full text-white focus:border-zraz-cyan outline-none">
                 </div>
 
                 <button onclick="submitLogEntry()" class="w-full py-3 bg-gradient-to-r from-zraz-cyan to-zraz-pink text-white font-black rounded-xl neon-glow-cyan hover:opacity-95 transition-opacity mt-2">
-                    Submit Entry to Trio Feed
+                    Submit Entry to Ledger & Feed
                 </button>
             </div>
         </div>
@@ -285,6 +290,13 @@
                 <span class="text-[10px] font-bold mt-1">Goals</span>
             </button>
 
+            <button onclick="switchTab('history')" id="tab-history" class="flex flex-col items-center text-zraz-muted hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span class="text-[10px] font-bold mt-1">History</span>
+            </button>
+
         </div>
     </nav>
 
@@ -302,36 +314,14 @@
 
         let db = null;
         let isOnlineSync = false;
+        let historyListener = null;
+        let userHistoryData = [];
 
         const DEFAULT_STATE = {
             users: {
-                Luke: {
-                    weightCurrent: 208,
-                    weightTarget: 195,
-                    dailyMinsGoal: 60,
-                    todayMins: 45,
-                    weeklyTarget: '5 Workouts / Week',
-                    weeklyDone: 3,
-                    customGoals: []
-                },
-                Ross: {
-                    weightCurrent: 185,
-                    weightTarget: 175,
-                    dailyMinsGoal: 45,
-                    todayMins: 30,
-                    weeklyTarget: '4 Workouts / Week',
-                    weeklyDone: 2,
-                    customGoals: []
-                },
-                Elliot: {
-                    weightCurrent: 190,
-                    weightTarget: 180,
-                    dailyMinsGoal: 60,
-                    todayMins: 60,
-                    weeklyTarget: '5 Workouts / Week',
-                    weeklyDone: 4,
-                    customGoals: []
-                }
+                Luke: { weightCurrent: 208, weightTarget: 195, dailyMinsGoal: 60, todayMins: 45, weeklyTarget: '5 Workouts / Week', customGoals: [] },
+                Ross: { weightCurrent: 185, weightTarget: 175, dailyMinsGoal: 45, todayMins: 30, weeklyTarget: '4 Workouts / Week', customGoals: [] },
+                Elliot: { weightCurrent: 190, weightTarget: 180, dailyMinsGoal: 60, todayMins: 60, weeklyTarget: '5 Workouts / Week', customGoals: [] }
             },
             feed: []
         };
@@ -375,14 +365,33 @@
                         localStorage.setItem('zraztrack_local', JSON.stringify(appData));
                         renderUI();
                     }, (error) => {
-                        console.warn("Feed sub-collection sync warning:", error);
+                        console.warn("Feed sync warning:", error);
                     });
+
+                attachHistoryListener();
 
             } catch (err) {
                 console.warn("Firebase Init Error:", err);
                 setSyncStatus(false);
                 renderUI();
             }
+        }
+
+        function attachHistoryListener() {
+            if (!db) return;
+            if (historyListener) historyListener(); // Detach previous listener
+
+            historyListener = db.collection('artifacts').doc('zraztrack_state')
+                .collection('users').doc(currentUser)
+                .collection('history')
+                .orderBy('timestamp', 'desc')
+                .limit(50)
+                .onSnapshot((snapshot) => {
+                    userHistoryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderHistoryUI();
+                }, (err) => {
+                    console.warn("History sub-collection listener warning:", err);
+                });
         }
 
         async function saveToFirebase(data) {
@@ -429,6 +438,7 @@
         function switchUser(user) {
             currentUser = user;
             updateUserSelectorUI();
+            attachHistoryListener();
             renderUI();
             if (!document.getElementById('view-goals').classList.contains('hidden')) {
                 populateGoalsForm();
@@ -445,25 +455,37 @@
                 }
             });
             document.getElementById('currentUserLabel').innerText = currentUser;
+            document.getElementById('historyUserLabel').innerText = currentUser;
         }
 
         function switchTab(tab) {
             const homeView = document.getElementById('view-home');
             const goalsView = document.getElementById('view-goals');
+            const historyView = document.getElementById('view-history');
+            
             const tabHome = document.getElementById('tab-home');
             const tabGoals = document.getElementById('tab-goals');
+            const tabHistory = document.getElementById('tab-history');
+
+            homeView.classList.add('hidden');
+            goalsView.classList.add('hidden');
+            historyView.classList.add('hidden');
+
+            tabHome.className = 'flex flex-col items-center text-zraz-muted hover:text-white';
+            tabGoals.className = 'flex flex-col items-center text-zraz-muted hover:text-white';
+            tabHistory.className = 'flex flex-col items-center text-zraz-muted hover:text-white';
 
             if (tab === 'home') {
                 homeView.classList.remove('hidden');
-                goalsView.classList.add('hidden');
                 tabHome.className = 'flex flex-col items-center text-zraz-cyan';
-                tabGoals.className = 'flex flex-col items-center text-zraz-muted hover:text-white';
-            } else {
-                homeView.classList.add('hidden');
+            } else if (tab === 'goals') {
                 goalsView.classList.remove('hidden');
-                tabHome.className = 'flex flex-col items-center text-zraz-muted hover:text-white';
                 tabGoals.className = 'flex flex-col items-center text-zraz-cyan';
                 populateGoalsForm();
+            } else if (tab === 'history') {
+                historyView.classList.remove('hidden');
+                tabHistory.className = 'flex flex-col items-center text-zraz-cyan';
+                renderHistoryUI();
             }
         }
 
@@ -565,6 +587,38 @@
             }
         }
 
+        function renderHistoryUI() {
+            const container = document.getElementById('historyLogsContainer');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            if (!userHistoryData || userHistoryData.length === 0) {
+                container.innerHTML = `<p class="text-xs text-zraz-muted text-center py-6">No historical logs found for ${currentUser} yet. Start logging workouts to see your ledger!</p>`;
+                return;
+            }
+
+            userHistoryData.forEach(item => {
+                const el = document.createElement('div');
+                el.className = "flex items-center justify-between bg-zraz-bg/60 p-3 rounded-xl border border-zraz-border text-xs";
+                
+                const icon = item.type === 'weight' ? '⚖️' : item.type === 'workout' ? '💪' : '⚡';
+                const dateStr = item.date || 'Today';
+
+                el.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="text-base">${icon}</span>
+                        <div>
+                            <span class="font-bold text-white block">${item.value} ${item.type === 'weight' ? 'lbs' : item.type === 'activity' ? 'mins' : ''}</span>
+                            <span class="text-zraz-muted text-[11px]">${item.notes || 'Activity entry'}</span>
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-mono text-zraz-cyan border border-zraz-cyan/30 bg-zraz-cyan/10 px-2 py-0.5 rounded-md">${dateStr}</span>
+                `;
+                container.appendChild(el);
+            });
+        }
+
         function populateGoalsForm() {
             const uData = appData.users[currentUser] || {};
             document.getElementById('input-weight-current').value = uData.weightCurrent || '';
@@ -640,13 +694,11 @@
                 appData.users[currentUser].customGoals = [];
             }
 
-            const newGoal = {
+            appData.users[currentUser].customGoals.push({
                 id: Date.now(),
                 title: title,
                 target: target || 'Active'
-            };
-
-            appData.users[currentUser].customGoals.push(newGoal);
+            });
 
             saveToFirebase(appData);
 
@@ -696,13 +748,17 @@
                 return;
             }
 
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+
             let logText = '';
+            let numericVal = parseFloat(val) || 0;
+
             if (type === 'weight') {
-                const w = parseFloat(val);
-                if (w) appData.users[currentUser].weightCurrent = w;
+                if (numericVal) appData.users[currentUser].weightCurrent = numericVal;
                 logText = `logged new scale weight: ${val} lbs`;
             } else if (type === 'activity') {
-                const mins = parseInt(val) || 30;
+                const mins = parseInt(val) || 0;
                 appData.users[currentUser].todayMins = (appData.users[currentUser].todayMins || 0) + mins;
                 logText = `logged ${val} active minutes (${notes || 'Zone 2 Cardio'})`;
             } else {
@@ -713,6 +769,19 @@
 
             if (db && isOnlineSync) {
                 try {
+                    // 1. Save entry to the user's permanent history ledger
+                    await db.collection('artifacts').doc('zraztrack_state')
+                        .collection('users').doc(currentUser)
+                        .collection('history')
+                        .add({
+                            date: todayStr,
+                            type: type,
+                            value: val,
+                            notes: notes || '',
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                    // 2. Add entry to the public team feed
                     await db.collection('artifacts').doc('zraztrack_state')
                         .collection('feed')
                         .add({
@@ -722,7 +791,7 @@
                             timestamp: firebase.firestore.FieldValue.serverTimestamp()
                         });
                 } catch (err) {
-                    console.error("Error adding feed entry:", err);
+                    console.error("Error writing historical log entry:", err);
                 }
             }
 
