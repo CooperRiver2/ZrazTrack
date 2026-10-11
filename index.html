@@ -54,7 +54,6 @@
         .neon-text-pink {
             text-shadow: 0 0 8px rgba(255, 0, 127, 0.6);
         }
-        /* Custom scrollbar for activity feed */
         ::-webkit-scrollbar {
             width: 4px;
         }
@@ -67,7 +66,7 @@
         }
     </style>
 
-    <!-- Firebase JS SDK v9 (Compat version for single-file deployment) -->
+    <!-- Firebase JS SDK v9 (Compat version) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -77,14 +76,12 @@
     <!-- Top Navigation Header -->
     <header class="sticky top-0 z-50 bg-[#090d16]/90 backdrop-blur-md border-b border-zraz-border px-4 py-3">
         <div class="max-w-md mx-auto flex items-center justify-between">
-            <!-- App Logo -->
             <div class="flex items-center space-x-2">
                 <div class="px-3 py-1 rounded-full border border-zraz-pink bg-zraz-pink/10 neon-glow-pink">
                     <span class="text-xs font-black tracking-widest text-zraz-pink uppercase">⚡ ZRAZNE ⚡</span>
                 </div>
             </div>
 
-            <!-- Online / Offline Status -->
             <div class="flex items-center space-x-2">
                 <div id="syncStatusIcon" title="Connecting to Firebase...">
                     <svg id="wifiOff" class="w-5 h-5 text-zraz-yellow animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,7 +94,6 @@
             </div>
         </div>
 
-        <!-- User Selector -->
         <div class="max-w-md mx-auto mt-3 flex items-center justify-between bg-zraz-card p-1.5 rounded-xl border border-zraz-border text-xs">
             <span class="text-zraz-muted font-semibold uppercase px-2">Viewing As:</span>
             <div class="flex space-x-1" id="userSelector">
@@ -111,7 +107,6 @@
     <!-- Main Container -->
     <main class="max-w-md mx-auto px-4 pt-4 space-y-6">
 
-        <!-- Banner / Summary Card -->
         <section class="bg-zraz-card border border-zraz-border rounded-2xl p-4 shadow-xl">
             <div class="flex justify-between items-start mb-2">
                 <div>
@@ -141,7 +136,6 @@
 
         <!-- View 1: Home Dashboard -->
         <div id="view-home" class="space-y-6">
-            <!-- Shared Trio Goals Section -->
             <section class="space-y-3">
                 <div class="flex justify-between items-center px-1">
                     <h2 class="text-sm font-bold tracking-wider text-zraz-muted uppercase flex items-center gap-1.5">
@@ -151,11 +145,9 @@
                 </div>
 
                 <div id="userGoalsList" class="space-y-4">
-                    <!-- Dynamic rendering of Luke, Ross, and Elliot's goals -->
                 </div>
             </section>
 
-            <!-- Activity Feed Section -->
             <section class="space-y-3">
                 <div class="flex justify-between items-center px-1">
                     <h2 class="text-sm font-bold tracking-wider text-zraz-muted uppercase flex items-center gap-1.5">
@@ -205,7 +197,7 @@
 
     </main>
 
-    <!-- Log Activity Modal / FAB Overlay -->
+    <!-- Log Activity Modal -->
     <div id="logModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 hidden">
         <div class="bg-zraz-card border border-zraz-border rounded-3xl w-full max-w-md p-5 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-zraz-border pb-3">
@@ -254,7 +246,6 @@
                 <span class="text-[10px] font-bold mt-1">Home</span>
             </button>
 
-            <!-- Main FAB Log Button -->
             <button onclick="toggleLogModal(true)" class="relative -top-5 bg-gradient-to-tr from-zraz-pink to-zraz-cyan p-3.5 rounded-full text-white shadow-lg neon-glow-pink hover:scale-105 transition-transform">
                 <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
@@ -273,9 +264,6 @@
 
     <!-- Application Script Logic -->
     <script>
-        // -------------------------------------------------------------
-        // 1. FIREBASE CONFIGURATION (INTEGRATED)
-        // -------------------------------------------------------------
         const firebaseConfig = {
             apiKey: "AIzaSyCSE6mEUKtDBrDRNZoNFs6iZNjuIzEwC20",
             authDomain: "zraztrack.firebaseapp.com",
@@ -289,7 +277,6 @@
         let db = null;
         let isOnlineSync = false;
 
-        // Default Data State
         const DEFAULT_STATE = {
             users: {
                 Luke: {
@@ -317,50 +304,53 @@
                     weeklyDone: 4
                 }
             },
-            feed: [
-                { id: 1, user: 'Luke', text: 'Logged 45 mins Zone 2 Trail Run', time: '2h ago' },
-                { id: 2, user: 'Elliot', text: 'Completed Kettlebell & Core circuit', time: '4h ago' },
-                { id: 3, user: 'Ross', text: 'Updated target weight goal', time: '1d ago' }
-            ]
+            feed: []
         };
 
         let appData = JSON.parse(localStorage.getItem('zraztrack_local')) || DEFAULT_STATE;
         let currentUser = 'Luke';
 
-        // -------------------------------------------------------------
-        // 2. INIT FIREBASE & SYNC
-        // -------------------------------------------------------------
         async function initFirebase() {
             try {
                 if (!firebase.apps.length) {
                     firebase.initializeApp(firebaseConfig);
                 }
                 
-                // Anonymous sign-in
                 await firebase.auth().signInAnonymously();
                 db = firebase.firestore();
 
-                // Explicitly set sync status to true upon successful authentication
                 setSyncStatus(true);
 
-                // Listen for real-time changes
+                // Real-time listener for user state & targets
                 db.collection('artifacts').doc('zraztrack_state')
                     .onSnapshot((doc) => {
                         if (doc.exists) {
-                            appData = doc.data();
+                            appData.users = doc.data().users || DEFAULT_STATE.users;
                             localStorage.setItem('zraztrack_local', JSON.stringify(appData));
                             renderUI();
                         } else {
-                            // Seed remote DB if empty
                             saveToFirebase(appData);
                         }
                     }, (error) => {
-                        console.warn("Firestore sync warning, defaulting to local cache:", error);
+                        console.warn("Firestore sync warning:", error);
                         setSyncStatus(false);
                     });
 
+                // Real-time listener for sub-collection feed items
+                db.collection('artifacts').doc('zraztrack_state')
+                    .collection('feed')
+                    .orderBy('timestamp', 'desc')
+                    .limit(20)
+                    .onSnapshot((snapshot) => {
+                        appData.feed = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        localStorage.setItem('zraztrack_local', JSON.stringify(appData));
+                        renderUI();
+                    }, (error) => {
+                        console.warn("Feed sub-collection sync warning:", error);
+                    });
+
             } catch (err) {
-                console.warn("Firebase Init Error (Running in Local Mode):", err);
+                console.warn("Firebase Init Error:", err);
                 setSyncStatus(false);
                 renderUI();
             }
@@ -370,9 +360,11 @@
             localStorage.setItem('zraztrack_local', JSON.stringify(data));
             if (db && isOnlineSync) {
                 try {
-                    await db.collection('artifacts').doc('zraztrack_state').set(data);
+                    await db.collection('artifacts').doc('zraztrack_state').set({
+                        users: data.users
+                    }, { merge: true });
                 } catch (err) {
-                    console.error("Error pushing to Firestore:", err);
+                    console.error("Error pushing state to Firestore:", err);
                 }
             }
         }
@@ -396,9 +388,6 @@
             }
         }
 
-        // -------------------------------------------------------------
-        // 3. UI RENDERING & LOGIC
-        // -------------------------------------------------------------
         function initUserFromURL() {
             const params = new URLSearchParams(window.location.search);
             const urlUser = params.get('user');
@@ -447,7 +436,6 @@
         }
 
         function renderUI() {
-            // Render Trio Goals Card
             const container = document.getElementById('userGoalsList');
             container.innerHTML = '';
 
@@ -480,7 +468,6 @@
                         </div>
                     </div>
 
-                    <!-- Weight Goal Progress -->
                     <div class="space-y-1">
                         <div class="flex justify-between text-xs">
                             <span class="text-zraz-muted font-semibold">⚡ Drop Body Weight to ${uData.weightTarget}lbs</span>
@@ -491,24 +478,22 @@
                         </div>
                     </div>
 
-                    <!-- Daily Activity Progress -->
                     <div class="space-y-1">
                         <div class="flex justify-between text-xs">
                             <span class="text-zraz-muted font-semibold">⚡ ${uData.dailyMinsGoal} mins of daily activity</span>
                             <span class="text-white font-bold">${uData.todayMins || 0} / ${uData.dailyMinsGoal} mins</span>
                         </div>
-                        <div class="w-full bg-zraz-bg rounded-full h-2 border border-zraz-pink to-zraz-yellow h-2 rounded-full" style="width: ${minsProgress}%"></div>
+                        <div class="w-full bg-zraz-bg rounded-full h-2 border border-zraz-border overflow-hidden">
+                            <div class="bg-gradient-to-r from-zraz-pink to-zraz-yellow h-2 rounded-full" style="width: ${minsProgress}%"></div>
                         </div>
                     </div>
                 `;
                 container.appendChild(card);
             });
 
-            // Summary Stats
             document.getElementById('stat-active').innerText = `${totalActiveMins} mins`;
             document.getElementById('stat-goals').innerText = `${activeGoalsCount} Active`;
 
-            // Activity Feed
             const feedContainer = document.getElementById('activityFeed');
             feedContainer.innerHTML = '';
             
@@ -520,7 +505,7 @@
                     el.className = "flex items-start justify-between bg-zraz-bg/50 p-2.5 rounded-xl border border-zraz-border/60 text-xs";
                     el.innerHTML = `
                         <div class="flex items-center space-x-2">
-                            <span class="text-sm">${item.text.includes('Weight') ? '⚖️' : '⚡'}</span>
+                            <span class="text-sm">${item.text && item.text.includes('weight') ? '⚖️' : '⚡'}</span>
                             <div>
                                 <span class="font-bold text-white">${item.user}</span>
                                 <span class="text-zraz-muted">${item.text}</span>
@@ -541,7 +526,7 @@
             document.getElementById('input-weekly-target').value = uData.weeklyTarget || '';
         }
 
-        function saveGoalSettings() {
+        async function saveGoalSettings() {
             const currentW = parseFloat(document.getElementById('input-weight-current').value);
             const targetW = parseFloat(document.getElementById('input-weight-target').value);
             const mins = parseInt(document.getElementById('input-daily-mins').value);
@@ -554,15 +539,23 @@
             if (mins) appData.users[currentUser].dailyMinsGoal = mins;
             if (weekly) appData.users[currentUser].weeklyTarget = weekly;
 
-            // Add feed entry
-            appData.feed.unshift({
-                id: Date.now(),
-                user: currentUser,
-                text: 'Updated personal goals & targets',
-                time: 'Just now'
-            });
-
             saveToFirebase(appData);
+
+            if (db && isOnlineSync) {
+                try {
+                    await db.collection('artifacts').doc('zraztrack_state')
+                        .collection('feed')
+                        .add({
+                            user: currentUser,
+                            text: 'updated personal goals & targets',
+                            time: 'Just now',
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                } catch (err) {
+                    console.error("Error adding feed entry:", err);
+                }
+            }
+
             renderUI();
             switchTab('home');
         }
@@ -573,7 +566,7 @@
             else modal.classList.add('hidden');
         }
 
-        function submitLogEntry() {
+        async function submitLogEntry() {
             const type = document.getElementById('log-type').value;
             const val = document.getElementById('log-value').value;
             const notes = document.getElementById('log-notes').value;
@@ -596,36 +589,38 @@
                 logText = `logged activity: ${val} ${notes ? '(' + notes + ')' : ''}`;
             }
 
-            appData.feed.unshift({
-                id: Date.now(),
-                user: currentUser,
-                text: logText,
-                time: 'Just now'
-            });
-
-            // Keep feed under 20 items
-            if (appData.feed.length > 20) appData.feed.pop();
-
             saveToFirebase(appData);
+
+            if (db && isOnlineSync) {
+                try {
+                    await db.collection('artifacts').doc('zraztrack_state')
+                        .collection('feed')
+                        .add({
+                            user: currentUser,
+                            text: logText,
+                            time: 'Just now',
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                } catch (err) {
+                    console.error("Error adding feed entry:", err);
+                }
+            }
+
             renderUI();
             toggleLogModal(false);
 
-            // Reset modal fields
             document.getElementById('log-value').value = '';
             document.getElementById('log-notes').value = '';
         }
 
         function resetToDefaults() {
-            if (confirm("Reset all user goals and feed entries back to default state?")) {
-                appData = JSON.parse(JSON.stringify(DEFAULT_STATE));
+            if (confirm("Reset all user goals back to default state?")) {
+                appData.users = JSON.parse(JSON.stringify(DEFAULT_STATE.users));
                 saveToFirebase(appData);
                 renderUI();
             }
         }
 
-        // -------------------------------------------------------------
-        // 4. BOOTSTRAP APP
-        // -------------------------------------------------------------
         window.addEventListener('DOMContentLoaded', () => {
             initUserFromURL();
             initFirebase();
